@@ -458,9 +458,15 @@ class AmperfiedWallboxClient:
             fut: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
             self._pending_responses[resp_topic] = fut
             try:
-                await self._client.subscribe(self._topic(resp_topic))
-                await self._client.publish(self._topic(cmd_topic), json.dumps(payload))
+                # The whole cycle (including subscribe/publish, not just the
+                # response wait) must be inside the timeout -- otherwise a
+                # stuck/half-broken connection could hang subscribe()/
+                # publish() indefinitely with no time limit at all, holding
+                # the per-resp_topic lock forever and wedging every other
+                # request to that topic behind it.
                 async with asyncio.timeout(timeout):
+                    await self._client.subscribe(self._topic(resp_topic))
+                    await self._client.publish(self._topic(cmd_topic), json.dumps(payload))
                     result = await fut
                     _LOGGER.debug("Response received: %s", resp_topic)
                     return result

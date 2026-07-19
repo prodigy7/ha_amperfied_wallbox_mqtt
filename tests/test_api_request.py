@@ -121,3 +121,42 @@ async def test_concurrent_requests_to_different_resp_topics_run_in_parallel() ->
     # long as the per-request delay. Both should complete in ~one delay.
     assert duration_a < 0.09
     assert duration_b < 0.09
+
+
+@pytest.mark.asyncio
+async def test_hung_subscribe_times_out_instead_of_blocking_forever() -> None:
+    """subscribe()/publish() must be inside the overall timeout window.
+
+    Previously they were awaited *before* entering the asyncio.timeout(...)
+    block, so a stuck/half-broken connection (subscribe()/publish() never
+    returning, e.g. mid-reconnect) would hang forever with no time limit at
+    all -- and since this holds the per-resp_topic lock, every other queued
+    request to the same topic would then also wait forever behind it. Seen
+    in practice: HA shutdown logs showing multiple
+    _async_refresh_last_charge_session background tasks all still pending
+    at once.
+    """
+    client = AmperfiedWallboxClient("host", "prefix", "user", "pass")
+
+    class _HangingFakeClient:
+        async def subscribe(self, topic: str) -> None:
+            await asyncio.sleep(999)
+
+        async def publish(self, topic: str, payload: str) -> None:
+            raise AssertionError("should never be reached, subscribe() never returns")
+
+    client._client = _HangingFakeClient()
+
+    with pytest.raises(TimeoutError):
+        await client._async_request(
+            "api/cmd/clog/get", "api/resp/clog/get", {}, timeout=0.05
+        )
+
+    # The lock must have been released despite the timeout, so a second
+    # request to the same topic isn't wedged behind the first forever.
+    client._client = _HangingFakeClient()
+    with pytest.raises(TimeoutError):
+        await asyncio.wait_for(
+            client._async_request("api/cmd/clog/get", "api/resp/clog/get", {}, timeout=0.05),
+            timeout=1.0,
+        )

@@ -7,6 +7,7 @@ async_subscribe_telemetry callback).
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Any
@@ -68,6 +69,7 @@ class AmperfiedWallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.entry = entry
         self.client = client
+        self._refresh_task: asyncio.Task[None] | None = None
         # Filled in with sw_version/hw_version/serial_number during
         # async_setup(); shared by all entities so the HA device page shows
         # real firmware/hardware info instead of just the static basics.
@@ -92,8 +94,13 @@ class AmperfiedWallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.async_set_updated_data(data)
 
         if topic == TOPIC_EV_STATE and _unwrap(value) == EV_STATE_NO_CAR:
+            if self._refresh_task is not None and not self._refresh_task.done():
+                _LOGGER.debug(
+                    "Last charge session refresh already in progress, not starting another"
+                )
+                return
             _LOGGER.debug("Car unplugged, refreshing last charge session")
-            self.entry.async_create_background_task(
+            self._refresh_task = self.entry.async_create_background_task(
                 self.hass,
                 self._async_refresh_last_charge_session(),
                 name="amperfied_wallbox_refresh_last_charge_session",
