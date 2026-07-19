@@ -66,7 +66,9 @@
       "using_default_password": {"name": "Standard-Passwort aktiv"}
     },
     "button": {
-      "authenticate_charging": {"name": "Laden freigeben"}
+      "authenticate_charging": {"name": "Laden freigeben"},
+      "pause_charging": {"name": "Laden pausieren"},
+      "resume_charging": {"name": "Laden fortsetzen"}
     }
   }
 }

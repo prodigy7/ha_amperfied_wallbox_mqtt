@@ -11,9 +11,10 @@ from typing import Any
 
 
 class FakeCoordinator:
-    def __init__(self, data: dict[str, Any]) -> None:
+    def __init__(self, data: dict[str, Any], client: Any = None) -> None:
         self.data = data
         self.device_info: dict[str, Any] = {}
+        self.client = client
 
 
 class FakeEntry:

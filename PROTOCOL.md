@@ -465,10 +465,10 @@ Findings:
 - `energymanager/resume` re-runs essentially the same state sequence as a fresh
   authorize+plug-in (`B1` -> `B2` -> `C2`, `wbState` `SuspendedEVSE` -> `SuspendedEV` ->
   `Charging`), just without needing a new authorization.
-- Not wired into `api.py`/entities yet -- per the read-primary policy, pause/resume of an
-  already-authorized, already-active session is arguably as low-blast-radius as the existing
-  manual-authorization button, but adding entities for it is a deliberate decision to make
-  separately, not a side effect of this documentation update.
+- Wired into `api.py` (`async_pause_charging`/`async_resume_charging`) and exposed as two
+  additional `button.*` entities, alongside the existing manual-authorization button -- same
+  low-blast-radius category (acts only on an already-authorized, already-active session), added
+  after an explicit, deliberate decision to do so.
 
 ### Example payload `loadbalancer/grid/monitor/leader`
 

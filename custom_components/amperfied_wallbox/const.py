@@ -27,6 +27,8 @@ CMD_LOGIN = "api/cmd/login"
 CMD_RFID_LIST_GET = "api/cmd/rfidList/get"
 CMD_CLOG_GET = "api/cmd/clog/get"
 CMD_ENERGYMANAGER_AUTHENTICATE = "api/cmd/energymanager/authenticate"
+CMD_ENERGYMANAGER_PAUSE = "api/cmd/energymanager/pause"
+CMD_ENERGYMANAGER_RESUME = "api/cmd/energymanager/resume"
 
 # --- Response Topics ---
 RESP_USER_AUTH = "api/resp/user/auth"
@@ -35,6 +37,8 @@ RESP_LOGIN = "api/resp/login"
 RESP_RFID_LIST_GET = "api/resp/rfidList/get"
 RESP_CLOG_GET = "api/resp/clog/get"
 RESP_ENERGYMANAGER_AUTHENTICATE = "api/resp/energymanager/authenticate"
+RESP_ENERGYMANAGER_PAUSE = "api/resp/energymanager/pause"
+RESP_ENERGYMANAGER_RESUME = "api/resp/energymanager/resume"
 
 # --- Telemetry topics the coordinator subscribes to ---
 TOPIC_EV_STATE = "api/t/power/evState"

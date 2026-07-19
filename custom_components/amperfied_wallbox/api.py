@@ -35,6 +35,8 @@ from .const import (
     ALL_TELEMETRY_TOPICS,
     CMD_CLOG_GET,
     CMD_ENERGYMANAGER_AUTHENTICATE,
+    CMD_ENERGYMANAGER_PAUSE,
+    CMD_ENERGYMANAGER_RESUME,
     CMD_LOGIN,
     CMD_RFID_LIST_GET,
     CMD_USER_AUTH,
@@ -43,6 +45,8 @@ from .const import (
     DEFAULT_PORT,
     RESP_CLOG_GET,
     RESP_ENERGYMANAGER_AUTHENTICATE,
+    RESP_ENERGYMANAGER_PAUSE,
+    RESP_ENERGYMANAGER_RESUME,
     RESP_LOGIN,
     RESP_RFID_LIST_GET,
     RESP_USER_AUTH,
@@ -619,6 +623,20 @@ class AmperfiedWallboxClient:
             RESP_ENERGYMANAGER_AUTHENTICATE,
             {"source": "web", "label": self._username},
         )
+
+    async def async_pause_charging(self) -> None:
+        """Pauses an active charging session (api/cmd/energymanager/pause).
+
+        Does not discard chargePermission, see PROTOCOL.md's "Observed
+        pause/resume cycle" section.
+        """
+        await self._async_request(CMD_ENERGYMANAGER_PAUSE, RESP_ENERGYMANAGER_PAUSE, {})
+
+    async def async_resume_charging(self) -> None:
+        """Resumes a session previously paused via async_pause_charging
+        (api/cmd/energymanager/resume).
+        """
+        await self._async_request(CMD_ENERGYMANAGER_RESUME, RESP_ENERGYMANAGER_RESUME, {})
 
     async def async_get_charge_log(
         self, filter_after: str, filter_before: str, log_type: str = "text/json"

@@ -27,9 +27,10 @@ MQTT5-over-WebSocket API (no Modbus needed, web UI features remain usable).
    up yourself. If the wallbox is unreachable or the credentials are wrong, the form shows an
    error and nothing is saved.
 
-Once set up, all entities, the manual charge-authorization button, and the `get_charge_log`
-service become available immediately; no further configuration is needed. See "Robustness"
-below for what happens if the wallbox is temporarily unreachable or the password changes later.
+Once set up, all entities, the manual charge-authorization/pause/resume buttons, and the
+`get_charge_log` service become available immediately; no further configuration is needed. See
+"Robustness" below for what happens if the wallbox is temporarily unreachable or the password
+changes later.
 
 ## Status
 
@@ -38,9 +39,9 @@ Core functionality is implemented and verified live against a real wallbox: conn
 the device prefix, 24 sensors (charging power/energy, per-phase power/voltage/current, PCB
 temperature, EV/wallbox/energy-manager state, limit reason, phase switch state, charge
 authorization source, solar surplus/grid/house power, last charge session), 2 binary sensors
-(EV connected, using default password), manual charge authorization button, a `get_charge_log`
-service, RFID/device-detail diagnostics, and device info (firmware/hardware version, serial,
-MAC addresses) on the HA device page.
+(EV connected, using default password), 3 buttons (manual charge authorization, pause charging,
+resume charging), a `get_charge_log` service, RFID/device-detail diagnostics, and device info
+(firmware/hardware version, serial, MAC addresses) on the HA device page.
 
 This integration is deliberately **read-primary**. Setting the charging power limit, phase
 switching, PV surplus charging toggle, and RFID card management are intentionally *not*
@@ -113,6 +114,35 @@ script:
 (For just the *most recent* session, `sensor.amperfied_wallbox_last_charge_session_energy`
 already covers that -- its `begin`/`end`/`source`/`label` attributes -- without needing to
 call the service at all.)
+
+**Pause charging during a peak grid tariff window, then resume automatically** (`button.pause_charging`/
+`button.resume_charging` act on an already-authorized, already-charging session -- see
+PROTOCOL.md's "Observed pause/resume cycle" for how this differs from stopping via the RFID fob):
+
+```yaml
+automation:
+  - alias: "Pause wallbox charging during peak tariff"
+    trigger:
+      - trigger: time
+        at: "17:00:00"
+    condition:
+      - condition: state
+        entity_id: sensor.amperfied_wallbox_wallbox_state
+        state: "Charging"
+    action:
+      - action: button.press
+        target:
+          entity_id: button.amperfied_wallbox_pause_charging
+
+  - alias: "Resume wallbox charging after peak tariff"
+    trigger:
+      - trigger: time
+        at: "20:00:00"
+    action:
+      - action: button.press
+        target:
+          entity_id: button.amperfied_wallbox_resume_charging
+```
 
 **Attribute costs per driver/RFID card for billing** (the wallbox itself doesn't know prices,
 and it can't recognize *which car* is plugged in -- there's no vehicle-level communication over
