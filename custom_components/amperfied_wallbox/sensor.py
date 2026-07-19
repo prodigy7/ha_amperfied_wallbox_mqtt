@@ -269,7 +269,13 @@ SENSOR_DESCRIPTIONS: tuple[AmperfiedWallboxSensorDescription, ...] = (
         value_fn=_last_session_energy,
         attributes_fn=_last_session_attributes,
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.MEASUREMENT,
+        # No state_class: this is a per-session snapshot (jumps to whatever
+        # the next finished session's total was, can go up or down), not a
+        # continuously increasing meter -- HA rejects device_class=energy
+        # combined with state_class=measurement outright, and total/
+        # total_increasing would incorrectly claim this is safe to sum for
+        # long-term statistics (the energy dashboard already has that via
+        # total_energy/TOPIC_POWERMETER_ENERGY above).
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
     ),
 ) + tuple(
