@@ -151,6 +151,8 @@ variants (if any exist) would be treated the same way.
 | `api/cmd/rfidList/get` | `{}` | `api/resp/rfidList/get` | List of all RFID cards/fobs |
 | `api/cmd/clog/get` | `{"filter_after","filter_before","type":"text/json"}` (see note below) | `api/resp/clog/get` | Charging history in a time window |
 | `api/cmd/energymanager/authenticate` | `{"source":"web","label":"admin"}` | `api/resp/energymanager/authenticate` | Manual charge authorization without RFID |
+| `api/cmd/energymanager/pause` | `{}` | `api/resp/energymanager/pause` | Pauses an active charging session without discarding `chargePermission` (live-verified, see "Observed pause/resume cycle" below) |
+| `api/cmd/energymanager/resume` | `{}` | `api/resp/energymanager/resume` | Resumes a session paused via `energymanager/pause` (live-verified) |
 
 **Confirmed:** search/filter/pagination in the web UI (e.g. for the RFID list) are purely
 client-side in the browser JS. The server always returns the full list for `rfidList/get`,
@@ -259,7 +261,7 @@ shapes below are from the same frontend-JS static analysis, not live-tested:**
 
 **Other commands found in the topic registry, not investigated further (purpose is largely
 self-explanatory from the name, but payload shapes not traced):** `energymanager/auth/enable`,
-`energymanager/lock/set`, `energymanager/pause`, `energymanager/resume`, `dateTime/set`,
+`energymanager/lock/set`, `dateTime/set`,
 `timeZone/set`, `ntp/set`/`ntp/enable`/`ntp/reset`, `network/ethernet/set`, `wlan/scan`/`wlan/select`/`wlan/reset`,
 `system/reboot`, `system/factoryReset`, `system/backend/set`, `ocpp16/config/set`,
 `modbustcp/*`, `user/add`/`user/modify`/`user/remove`/`user/changePwd`, `auth/secure/enable`,
@@ -301,7 +303,7 @@ during a sniffing session.
 | `powermeter/powerPerPhases` | `0;0;0` | Power per phase (L1;L2;L3) |
 | `powermeter/sensor` | `231.6;0;230.5;0;231.0;0` | Voltage/current alternating per phase |
 | `chargectrl/wbState` | `Available` | Wallbox status. Observed values: `Available` (idle), `Preparing` (car just plugged in, EVSE side not yet ready/authorized), `SuspendedEVSE` (paused on the charging station side, e.g. briefly after authorization or while unplugging), `SuspendedEV` (paused on the car side -- among other things the state right after manually stopping via the RFID fob, even though still authorized), `Charging` (actively charging) |
-| `energymanager/emState` | `Available` | Energy manager status. Observed values: `Available` (idle), `CarPlugedIn` (car just plugged in -- the "Pluged" typo is exactly as sent by the wallbox, deliberately documented unchanged), `LimitCurrent` (active charging resp. authorized, current is being limited/regulated), `LimitReset` (brief transition while unplugging, before returning to `Available`) |
+| `energymanager/emState` | `Available` | Energy manager status. Observed values: `Available` (idle), `CarPlugedIn` (car just plugged in -- the "Pluged" typo is exactly as sent by the wallbox, deliberately documented unchanged), `LimitCurrent` (active charging resp. authorized, current is being limited/regulated), `LimitReset` (brief transition while unplugging, before returning to `Available`), `Pause` (charging paused via `energymanager/pause`, see below) |
 | `energymanager/chargePermission` | `{}` or `{"source","label","timestamp"}` | Authorization details. Much richer for RFID authorization: `{"uuid","cardnum","secure","state","expiry","label","connectorList","source":"rfid","timestamp"}` (the complete card record from the RFID list). **Important:** manually stopping via the RFID fob while charging does **not** reset `chargePermission` -- the card stays remembered until the car is actually unplugged. `chargePermission` alone is therefore NOT suitable for detecting "currently charging"; use `wbState`/`evState` for that. |
 | `loadbalancer/grid/monitor/leader` | large JSON, every ~5s | Complete grid/connector telemetry |
 
@@ -407,6 +409,66 @@ Findings:
   then `chargePermission` discarded, `emState`/`wbState` via intermediate states to
   `Available`), regardless of whether authorization was previously via RFID or
   `energymanager/authenticate` (web).
+
+### Observed pre-authorization before plug-in
+
+Unlike the RFID cycle above (authorize *after* plugging in), calling `energymanager/authenticate`
+*before* a car is plugged in (the "Laden freigeben" button in the idle `Available` state) leaves
+the wallbox waiting with `chargePermission` already set and `evState` still `A1`. Live-verified:
+plugging in the car afterwards skips the `B1` "waiting for authorization" state entirely and goes
+straight to `evState=C2`/`wbState=Charging` -- the pending permission is consumed immediately, no
+second authorization step needed. `chargePermission` itself is not re-issued/changed by this;
+repeated `energymanager/authenticate` calls while a permission is already pending did not appear
+to alter or refresh the existing `chargePermission` entry (same `source`/`label`/`timestamp` as
+before, even with a different payload) -- consistent with the web UI itself never offering a
+"cancel" action for the `Authenticated` state (see below), since a second authenticate call
+wouldn't have any observable effect anyway.
+
+**No cancel/deauthorize action while waiting for a car:** the wallbox's own frontend state
+machine maps the `Authenticated` (waiting) state to a *disabled* button (`lblBtnWait`, "Wait...")
+with no `buttonAction` at all -- confirmed by reading the frontend JS's state-to-button mapping.
+There is no observed way to revoke a pending web authorization before a car is plugged in, short
+of an eventual server-side timeout (not observed/confirmed either way).
+
+### Observed pause/resume cycle (`energymanager/pause` / `energymanager/resume`)
+
+Found in the frontend JS topic registry, and live-verified by using the wallbox's own "Laden
+pausieren"/"Fortsetzen" buttons during an active charging session (`energymanager/pause` and
+`.../resume`, both take/return `{}`). This is a **different mechanism from the RFID-fob stop**
+documented in the charging-cycle section above:
+
+```
+[t=  0.0s] (charging) evState=C2 wbState=Charging emState=LimitCurrent powermeter/power=~9000
+
+# "Laden pausieren" clicked (energymanager/pause):
+[t=  8.5s] energymanager/emState = 'Pause'          # vs. RFID stop: emState unchanged
+[t=  8.5s] chargectrl/wbState = 'SuspendedEVSE'      # vs. RFID stop: wbState = 'SuspendedEV'
+[t= 13.1s] power/evState = 'C2' -> 'C1'
+[t= 15.3s] power/evState = 'C1' -> 'B1'              # vs. RFID stop: evState unchanged
+[t= 15.9s] power/powerLimit = 0, power/limiter = 'em'
+             # settles at evState=B1, powerLimit=0, power=0 -- stays here indefinitely
+             # chargePermission untouched (same source/label/timestamp throughout)
+
+# "Fortsetzen" clicked (energymanager/resume):
+[t=  3.5s] energymanager/emState = 'Pause' -> 'LimitCurrent'
+[t=  5.8s] power/evState = 'B1' -> 'B2', wbState = 'SuspendedEV', powerLimit = 9660, limiter = 'none'
+[t=  9.5s] power/evState = 'B2' -> 'C2'              # charging resumes
+[t= 27.0s] chargectrl/wbState = 'SuspendedEV' -> 'Charging', powermeter/power back to ~9000
+```
+
+Findings:
+- `energymanager/pause` drops the EV-side pilot signal all the way back to `evState=B1` (as if
+  freshly plugged in but not yet authorized), unlike an RFID-fob stop which leaves `evState`
+  unchanged. `wbState` also differs (`SuspendedEVSE` vs. `SuspendedEV`).
+- `chargePermission` survives a pause/resume cycle unchanged, same as it survives an RFID stop --
+  it is only ever discarded on an actual unplug (see the charging-cycle section above).
+- `energymanager/resume` re-runs essentially the same state sequence as a fresh
+  authorize+plug-in (`B1` -> `B2` -> `C2`, `wbState` `SuspendedEVSE` -> `SuspendedEV` ->
+  `Charging`), just without needing a new authorization.
+- Not wired into `api.py`/entities yet -- per the read-primary policy, pause/resume of an
+  already-authorized, already-active session is arguably as low-blast-radius as the existing
+  manual-authorization button, but adding entities for it is a deliberate decision to make
+  separately, not a side effect of this documentation update.
 
 ### Example payload `loadbalancer/grid/monitor/leader`
 
