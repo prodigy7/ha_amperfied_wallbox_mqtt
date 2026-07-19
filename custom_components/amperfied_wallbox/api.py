@@ -183,6 +183,7 @@ class AmperfiedWallboxClient:
 
         self._telemetry_callback: MessageCallback | None = None
         self._pending_responses: dict[str, asyncio.Future[dict[str, Any]]] = {}
+        self._request_locks: dict[str, asyncio.Lock] = {}
 
         # Optional hooks for the caller (see set_callbacks docstring).
         self._on_connection_lost: Callable[[Exception], None] | None = None
@@ -433,27 +434,39 @@ class AmperfiedWallboxClient:
 
         Subscribes to resp_topic first (to avoid a race condition, see
         PROTOCOL.md), then publishes cmd_topic and waits for the response.
+
+        Serialized per resp_topic: the wallbox protocol has no per-request
+        correlation ID, only the response topic name, so two requests in
+        flight concurrently on the same resp_topic would otherwise overwrite
+        each other's future in _pending_responses and one would hang until
+        timeout (seen in practice: coordinator startup's explicit charge-log
+        refresh racing a concurrent one triggered by retained EV-state
+        telemetry).
         """
         if self._client is None:
             raise AmperfiedWallboxConnectionError("Not connected")
 
-        # Deliberately never log `payload` -- it can contain the plaintext
-        # password (user/auth) or tokens (login, refreshAuth).
-        _LOGGER.debug("Request: %s -> %s", cmd_topic, resp_topic)
-        fut: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
-        self._pending_responses[resp_topic] = fut
-        try:
-            await self._client.subscribe(self._topic(resp_topic))
-            await self._client.publish(self._topic(cmd_topic), json.dumps(payload))
-            async with asyncio.timeout(timeout):
-                result = await fut
-                _LOGGER.debug("Response received: %s", resp_topic)
-                return result
-        except TimeoutError:
-            _LOGGER.debug("Request timed out: %s (no response on %s)", cmd_topic, resp_topic)
-            raise
-        finally:
-            self._pending_responses.pop(resp_topic, None)
+        lock = self._request_locks.setdefault(resp_topic, asyncio.Lock())
+        async with lock:
+            # Deliberately never log `payload` -- it can contain the plaintext
+            # password (user/auth) or tokens (login, refreshAuth).
+            _LOGGER.debug("Request: %s -> %s", cmd_topic, resp_topic)
+            fut: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
+            self._pending_responses[resp_topic] = fut
+            try:
+                await self._client.subscribe(self._topic(resp_topic))
+                await self._client.publish(self._topic(cmd_topic), json.dumps(payload))
+                async with asyncio.timeout(timeout):
+                    result = await fut
+                    _LOGGER.debug("Response received: %s", resp_topic)
+                    return result
+            except TimeoutError:
+                _LOGGER.debug(
+                    "Request timed out: %s (no response on %s)", cmd_topic, resp_topic
+                )
+                raise
+            finally:
+                self._pending_responses.pop(resp_topic, None)
 
     async def _async_login(self) -> None:
         """Performs the full auth flow: user/auth -> login.
