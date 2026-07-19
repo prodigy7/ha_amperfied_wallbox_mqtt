@@ -7,10 +7,11 @@ from dataclasses import dataclass
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .api import AmperfiedWallboxClient
+from .api import AmperfiedWallboxClient, AmperfiedWallboxConnectionError
 from .const import DOMAIN
 from .coordinator import AmperfiedWallboxCoordinator
 
@@ -73,4 +74,17 @@ class AmperfiedWallboxButton(CoordinatorEntity[AmperfiedWallboxCoordinator], But
 
     async def async_press(self) -> None:
         """Called when the button is pressed in HA."""
-        await self.entity_description.press_fn(self.coordinator.client)
+        try:
+            await self.entity_description.press_fn(self.coordinator.client)
+        except TimeoutError as err:
+            # The wallbox simply never responds to some commands when it's
+            # not in a state where they apply (e.g. energymanager/pause
+            # while no car is charging) -- there's no error response, just
+            # silence, so this surfaces as a timeout rather than a rejection.
+            raise HomeAssistantError(
+                "The wallbox did not respond in time. It may not be in a state "
+                "where this action applies (e.g. pausing while not charging), "
+                "or the connection is currently down."
+            ) from err
+        except AmperfiedWallboxConnectionError as err:
+            raise HomeAssistantError(f"Not connected to the wallbox: {err}") from err

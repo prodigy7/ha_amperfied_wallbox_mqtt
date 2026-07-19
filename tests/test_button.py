@@ -4,7 +4,9 @@ client method, and nothing else.
 from __future__ import annotations
 
 import pytest
+from homeassistant.exceptions import HomeAssistantError
 
+from custom_components.amperfied_wallbox.api import AmperfiedWallboxConnectionError
 from custom_components.amperfied_wallbox.button import (
     BUTTON_DESCRIPTIONS,
     AmperfiedWallboxButton,
@@ -25,6 +27,21 @@ class FakeClient:
 
     async def async_resume_charging(self) -> None:
         self.calls.append("resume")
+
+
+class TimingOutFakeClient:
+    """The wallbox silently ignores some commands when they don't apply
+    (e.g. pause while not charging) -- no error response, just never
+    responding, which surfaces as a timeout.
+    """
+
+    async def async_pause_charging(self) -> None:
+        raise TimeoutError("no response on api/resp/energymanager/pause")
+
+
+class DisconnectedFakeClient:
+    async def async_pause_charging(self) -> None:
+        raise AmperfiedWallboxConnectionError("Not connected")
 
 
 def _button_for(key: str, client: FakeClient) -> AmperfiedWallboxButton:
@@ -60,3 +77,17 @@ class TestButtonPress:
         ]
         unique_ids = {button.unique_id for button in buttons}
         assert len(unique_ids) == 3
+
+
+class TestButtonPressErrorHandling:
+    @pytest.mark.asyncio
+    async def test_timeout_becomes_home_assistant_error(self) -> None:
+        button = _button_for("pause_charging", TimingOutFakeClient())
+        with pytest.raises(HomeAssistantError):
+            await button.async_press()
+
+    @pytest.mark.asyncio
+    async def test_connection_error_becomes_home_assistant_error(self) -> None:
+        button = _button_for("pause_charging", DisconnectedFakeClient())
+        with pytest.raises(HomeAssistantError):
+            await button.async_press()

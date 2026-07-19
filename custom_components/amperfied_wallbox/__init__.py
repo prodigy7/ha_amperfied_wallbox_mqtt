@@ -6,7 +6,12 @@ import logging
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
-from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady, ServiceValidationError
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    ConfigEntryNotReady,
+    HomeAssistantError,
+    ServiceValidationError,
+)
 
 from .api import (
     AmperfiedWallboxAuthError,
@@ -47,10 +52,17 @@ async def _async_handle_get_charge_log(hass: HomeAssistant, call: ServiceCall) -
             "Multiple Amperfied Wallbox config entries loaded -- please specify config_entry_id."
         )
 
-    return await coordinator.client.async_get_charge_log(
-        filter_after=call.data["filter_after"],
-        filter_before=call.data["filter_before"],
-    )
+    try:
+        return await coordinator.client.async_get_charge_log(
+            filter_after=call.data["filter_after"],
+            filter_before=call.data["filter_before"],
+        )
+    except TimeoutError as err:
+        raise HomeAssistantError(
+            "The wallbox did not respond in time to the charge log request."
+        ) from err
+    except AmperfiedWallboxConnectionError as err:
+        raise HomeAssistantError(f"Not connected to the wallbox: {err}") from err
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
