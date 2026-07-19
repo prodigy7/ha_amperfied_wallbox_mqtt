@@ -1,0 +1,72 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Amperfied Wallbox verbinden",
+        "data": {
+          "host": "IP-Adresse oder Hostname",
+          "username": "Benutzername",
+          "password": "Passwort"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Amperfied Wallbox Passwort erneut eingeben",
+        "description": "Das Passwort fuer die Wallbox unter {host} funktioniert nicht mehr (z.B. weil es geaendert wurde). Bitte das neue Passwort eingeben.",
+        "data": {
+          "password": "Passwort"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung fehlgeschlagen. IP-Adresse pruefen.",
+      "invalid_auth": "Anmeldung fehlgeschlagen. Benutzername/Passwort pruefen.",
+      "unknown": "Unerwarteter Fehler."
+    },
+    "abort": {
+      "already_configured": "Diese Wallbox ist bereits eingerichtet.",
+      "reauth_successful": "Erneute Anmeldung war erfolgreich."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "charging_power": {"name": "Ladeleistung"},
+      "total_energy": {"name": "Ladeenergie gesamt"},
+      "pcb_temperature": {"name": "PCB-Temperatur"},
+      "ev_state": {
+        "name": "Fahrzeugstatus",
+        "state": {
+          "a1": "Kein Fahrzeug",
+          "b": "Angesteckt",
+          "c": "Laedt"
+        }
+      },
+      "wallbox_state": {"name": "Wallbox-Status"},
+      "power_limit": {"name": "Leistungslimit"},
+      "energy_manager_state": {"name": "Energy-Manager-Status"},
+      "active_phases": {"name": "Aktive Phasen"},
+      "limiter": {"name": "Limit-Grund"},
+      "phase_switch_state": {"name": "Phasenumschaltungs-Status"},
+      "charge_permission_source": {"name": "Ladefreigabe-Quelle"},
+      "surplus_power": {"name": "PV-Überschussleistung"},
+      "grid_power": {"name": "Netzleistung"},
+      "house_power": {"name": "Hausverbrauchsleistung"},
+      "last_charge_session_energy": {"name": "Energie der letzten Ladung"},
+      "power_phase_1": {"name": "Leistung Phase 1"},
+      "power_phase_2": {"name": "Leistung Phase 2"},
+      "power_phase_3": {"name": "Leistung Phase 3"},
+      "voltage_phase_1": {"name": "Spannung Phase 1"},
+      "voltage_phase_2": {"name": "Spannung Phase 2"},
+      "voltage_phase_3": {"name": "Spannung Phase 3"},
+      "current_phase_1": {"name": "Strom Phase 1"},
+      "current_phase_2": {"name": "Strom Phase 2"},
+      "current_phase_3": {"name": "Strom Phase 3"}
+    },
+    "binary_sensor": {
+      "ev_connected": {"name": "Auto angesteckt"},
+      "using_default_password": {"name": "Standard-Passwort aktiv"}
+    },
+    "button": {
+      "authenticate_charging": {"name": "Laden freigeben"}
+    }
+  }
+}

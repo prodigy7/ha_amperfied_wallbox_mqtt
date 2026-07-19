@@ -1,0 +1,32 @@
+get_charge_log:
+  name: Get charge log
+  description: >-
+    Fetches charging session history for a time window from the wallbox
+    (api/cmd/clog/get, see PROTOCOL.md).
+  fields:
+    config_entry_id:
+      name: Config entry
+      description: >-
+        Which wallbox config entry to query. Only needed if more than one
+        wallbox is configured.
+      required: false
+      selector:
+        text:
+    filter_after:
+      name: After
+      description: >-
+        Start of the time window (ISO-8601). Use the wallbox's local wall-clock
+        time -- it does not convert UTC-normalized timestamps correctly.
+      required: true
+      example: "2026-07-01T00:00:00+02:00"
+      selector:
+        text:
+    filter_before:
+      name: Before
+      description: >-
+        End of the time window (ISO-8601). Use the wallbox's local wall-clock
+        time -- it does not convert UTC-normalized timestamps correctly.
+      required: true
+      example: "2026-07-18T23:59:59+02:00"
+      selector:
+        text:

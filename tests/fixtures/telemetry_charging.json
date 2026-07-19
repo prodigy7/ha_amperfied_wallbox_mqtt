@@ -1,0 +1,56 @@
+{
+  "_comment": "Real telemetry snapshot captured live against a HDM-SMART-CONNECT wallbox while actively charging (3-phase, ~9kW, authorized via RFID fob). See PROTOCOL.md's 'Observed complete charging cycle via RFID fob' section.",
+  "api/t/power/evState": "C2",
+  "api/t/power/temp": 37.0,
+  "api/t/power/phases": 3,
+  "api/t/power/powerLimit": 9660,
+  "api/t/power/limiter": "none",
+  "api/t/power/phaseSwitchState": {"value": "Ready"},
+  "api/t/powermeter/power": 9089,
+  "api/t/powermeter/energy": 1998.668,
+  "api/t/powermeter/powerPerPhases": "3054;3070;2965",
+  "api/t/powermeter/sensor": "229.29;13.533;230.53;13.551;230.44;13.018",
+  "api/t/chargectrl/wbState": "Charging",
+  "api/t/energymanager/emState": "LimitCurrent",
+  "api/t/energymanager/chargePermission": {
+    "uuid": "de:ad:be:ef:00:11:22",
+    "cardnum": "-",
+    "secure": false,
+    "state": 1,
+    "expiry": "",
+    "label": "Autoschlüssel Fob",
+    "connectorList": [-1],
+    "source": "rfid",
+    "timestamp": "2026-01-15T18:00:00Z"
+  },
+  "api/t/loadbalancer/grid/monitor/leader": {
+    "meterCurrent": [0.0, 0.0, 0.0],
+    "meterPower": [0.0, 0.0, 0.0],
+    "meterRequired": false,
+    "meterConnected": true,
+    "gridCurrent": [13.442, 13.363, 12.928],
+    "gridPower": [3035.0, 3003.0, 2945.0],
+    "standbyCurrent": [0.0, 0.0, 0.0],
+    "standbyPower": [0.0, 0.0, 0.0],
+    "houseCurrent": [0.0, 0.0, 0.0],
+    "housePower": [0.0, 0.0, 0.0],
+    "houseCurrentUnfiltered": [0.0, 0.0, 0.0],
+    "housePowerUnfiltered": [0.0, 0.0, 0.0],
+    "surplusPower": 0.0,
+    "surplusPowerUnfiltered": 0.0,
+    "surplusPowerSupplement": 0.0,
+    "chargingCnt": 0,
+    "suspendedEvCnt": 0,
+    "connectors": [
+      {
+        "id": "0",
+        "evState": "C2",
+        "connected": true,
+        "input": {"value": 14.0, "phases": 3, "unit": "A", "source": "em", "reason": "limit"},
+        "output": {"value": 14.0, "phases": 3, "unit": "A", "source": "em", "reason": "limit"},
+        "current": [13.442, 13.363, 12.928],
+        "power": [3035.0, 3003.0, 2945.0]
+      }
+    ]
+  }
+}

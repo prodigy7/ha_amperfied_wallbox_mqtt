@@ -1,0 +1,68 @@
+{
+  "_comment": "Real telemetry snapshot captured live against a HDM-SMART-CONNECT wallbox (see scripts/test_integration.py) while idle -- no EV connected.",
+  "api/t/power/evState": "A1",
+  "api/t/power/temp": 34.0,
+  "api/t/power/phases": 3,
+  "api/t/power/powerLimit": 0,
+  "api/t/power/limiter": "nocar",
+  "api/t/power/phaseSwitchState": {"value": "Ready"},
+  "api/t/powermeter/power": 0,
+  "api/t/powermeter/energy": 1999.167,
+  "api/t/powermeter/powerPerPhases": "0;0;0",
+  "api/t/powermeter/sensor": "232.97;0;232.63;0;233.33;0",
+  "api/t/chargectrl/wbState": "Available",
+  "api/t/energymanager/emState": "Available",
+  "api/t/energymanager/chargePermission": {},
+  "api/t/loadbalancer/grid/monitor/leader": {
+    "meterCurrent": [0.0, 0.0, 0.0],
+    "meterPower": [0.0, 0.0, 0.0],
+    "meterRequired": false,
+    "meterConnected": true,
+    "gridCurrent": [0.0, 0.0, 0.0],
+    "gridPower": [0.0, 0.0, 0.0],
+    "standbyCurrent": [0.0, 0.0, 0.0],
+    "standbyPower": [0.0, 0.0, 0.0],
+    "houseCurrent": [0.0, 0.0, 0.0],
+    "housePower": [0.0, 0.0, 0.0],
+    "houseCurrentUnfiltered": [0.0, 0.0, 0.0],
+    "housePowerUnfiltered": [0.0, 0.0, 0.0],
+    "surplusPower": 0.0,
+    "surplusPowerUnfiltered": 0.0,
+    "surplusPowerSupplement": 0.0,
+    "chargingCnt": 0,
+    "suspendedEvCnt": 0,
+    "connectors": [
+      {
+        "id": "0",
+        "evState": "A1",
+        "connected": true,
+        "input": {"value": 0.0, "phases": 0, "unit": "A", "source": "em", "reason": "idle"},
+        "output": {"value": 0.0, "phases": 0, "unit": "A", "source": "em", "reason": "suspended"},
+        "current": [0.0, 0.0, 0.0],
+        "power": [0.0, 0.0, 0.0]
+      }
+    ]
+  },
+  "_last_charge_session": {
+    "chargingDuration": 28,
+    "ocpp": [],
+    "begin": "2026-01-15T20:00:00+0200",
+    "end": "2026-01-15T20:00:53+0200",
+    "unplugged": "2026-01-15T20:00:53+0200",
+    "plugged": "2026-01-15T20:00:00+0200",
+    "sessionDuration": 53,
+    "meter": {"source": "", "serial": "", "posBegin": 1999.101, "posEnd": 1999.165},
+    "energy": 0.064,
+    "solar": {"strategy": "", "gridEnergy": 0.064, "solarSaving": 0.0, "solarEnergy": 0.0},
+    "label": "wallbox",
+    "guid": "11111111-2222-3333-4444-555555555555",
+    "authentication": {
+      "uuid": "de:ad:be:ef:00:11:22",
+      "cardnum": "-",
+      "label": "Autoschlüssel Fob",
+      "source": "rfid",
+      "secure": false
+    },
+    "cost": {"unit": 0.0, "total": 0.0}
+  }
+}

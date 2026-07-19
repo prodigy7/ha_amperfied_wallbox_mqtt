@@ -1,0 +1,3 @@
+pytest>=8.0
+homeassistant>=2024.11.0
+aiomqtt>=2.0.0
