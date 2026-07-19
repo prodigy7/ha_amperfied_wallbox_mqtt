@@ -80,6 +80,15 @@ that way:
   - Running `scripts/test_integration.py` requires the (heavy) `homeassistant` package;
     `scripts/test_api.py` deliberately doesn't, so it stays fast for quick `api.py`-only
     iteration.
+  - **A long-lived local `.venv` silently accumulates packages that never make it into
+    `requirements_test.txt`** -- e.g. `pytest-asyncio` got installed once early on and every
+    async test afterwards happily ran locally, while CI's clean `pip install -r
+    requirements_test.txt` had no such plugin and failed outright ("async def functions are not
+    natively supported"). Whenever a test uses a new import/plugin/marker (anything beyond
+    plain `pytest`), add it to `requirements_test.txt` in the *same* change, and don't trust a
+    green local run alone -- before pushing, install into a throwaway venv from a clean checkout
+    of `requirements_test.txt` and run the suite there, since that's the only thing that actually
+    matches what CI does.
 
 ## Local testing without a full HA instance
 
@@ -150,7 +159,22 @@ CI runs automatically via `.github/workflows/`:
 - `validate.yaml`: official `home-assistant/actions/hassfest` and `hacs/action` validation
   (push/PR, plus a daily scheduled run to catch upstream breakage) -- no local HA-core checkout
   needed.
-- `test.yaml`: the pytest suite above.
+- `test.yaml`: the pytest suite above, installing dependencies fresh from
+  `requirements_test.txt` only -- it does **not** inherit whatever happens to already be in a
+  local dev `.venv`.
+
+Before pushing a change that touches `tests/` (new test file, new import, new pytest plugin
+marker), verify it in an environment that actually matches CI instead of just the local dev
+`.venv`:
+
+```bash
+python3 -m venv /tmp/ci-repro && /tmp/ci-repro/bin/pip install -r requirements_test.txt
+/tmp/ci-repro/bin/pytest tests/ -v
+rm -rf /tmp/ci-repro
+```
+
+If this fails while the local `.venv` run passes, `requirements_test.txt` is missing something
+the local `.venv` picked up some other way -- add it there before pushing, not after CI reports it.
 
 To run hassfest locally instead of waiting for CI:
 
