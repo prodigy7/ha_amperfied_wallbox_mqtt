@@ -93,7 +93,11 @@ class AmperfiedWallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         if topic == TOPIC_EV_STATE and _unwrap(value) == EV_STATE_NO_CAR:
             _LOGGER.debug("Car unplugged, refreshing last charge session")
-            self.hass.async_create_task(self._async_refresh_last_charge_session())
+            self.entry.async_create_background_task(
+                self.hass,
+                self._async_refresh_last_charge_session(),
+                name="amperfied_wallbox_refresh_last_charge_session",
+            )
 
     async def async_setup(self) -> None:
         """Connects the client, fetches static device info, and starts the
