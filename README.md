@@ -114,6 +114,38 @@ script:
 already covers that -- its `begin`/`end`/`source`/`label` attributes -- without needing to
 call the service at all.)
 
+**Attribute costs per driver/RFID card for billing** (the wallbox itself doesn't know prices,
+and it can't recognize *which car* is plugged in -- there's no vehicle-level communication over
+the charging pilot signal, no VIN/ISO-15118 exchange. What it does know is *which RFID card*
+authorized each session, via `authentication.label`/`authentication.source` in the charge log.
+If each household member/car has their own dedicated card, grouping by that label gives you a
+practical per-driver cost breakdown):
+
+```yaml
+script:
+  wallbox_billing_by_driver:
+    alias: "Wallbox: cost breakdown by RFID card this month"
+    sequence:
+      - action: amperfied_wallbox.get_charge_log
+        data:
+          filter_after: "{{ now().replace(day=1, hour=0, minute=0, second=0).strftime('%Y-%m-%dT%H:%M:%S%z') }}"
+          filter_before: "{{ now().strftime('%Y-%m-%dT%H:%M:%S%z') }}"
+        response_variable: charge_log
+      - action: notify.notify
+        data:
+          message: >-
+            {%- set price_per_kwh = 0.32 -%}
+            {% for label, sessions in charge_log.value | groupby("authentication.label") -%}
+            {%- set driver = label if label else (sessions[0].authentication.source ~ " (no card)") -%}
+            {%- set total_kwh = sessions | map(attribute="energy") | sum -%}
+            {{ driver }}: {{ total_kwh | round(2) }} kWh (~{{ (total_kwh * price_per_kwh) | round(2) }} €)
+            {% endfor -%}
+```
+
+Adjust `price_per_kwh` to your actual electricity rate (or pull it from a `sensor`/`input_number`
+instead of hardcoding it). Sessions with no RFID card (authorized via the button/dashboard) get
+grouped under their `source` instead, e.g. "web (no card)".
+
 ### Robustness
 
 Live-verified (forced disconnects/wrong credentials against the real wallbox, see
