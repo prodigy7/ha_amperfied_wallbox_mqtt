@@ -1,4 +1,4 @@
-# Home Assistant Integration: Amperfied Wallbox (connect.solar)
+# Home Assistant Integration: Amperfied Wallbox (MQTT Integration)
 
 Native Home Assistant integration for Amperfied/Heidelberg connect.solar wallboxes
 (HDM-SMART-CONNECT series), connected via the wallbox's reverse-engineered
@@ -10,7 +10,7 @@ MQTT5-over-WebSocket API (no Modbus needed, web UI features remain usable).
 
 1. In HACS, add this repository as a custom repository:
    `https://github.com/prodigy7/ha_amperfied_wallbox_mqtt`, category "Integration".
-2. Install "Amperfied Wallbox (connect.solar)" from HACS, then restart Home Assistant.
+2. Install "Amperfied Wallbox (MQTT Integration)" from HACS, then restart Home Assistant.
 3. Continue with step 3 below ("Add Integration").
 
 **Manual install:**

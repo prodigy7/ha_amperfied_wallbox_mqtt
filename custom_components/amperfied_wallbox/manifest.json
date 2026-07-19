@@ -1,6 +1,6 @@
 {
   "domain": "amperfied_wallbox",
-  "name": "Amperfied Wallbox (connect.solar)",
+  "name": "Amperfied Wallbox (MQTT Integration)",
   "codeowners": ["@prodigy7"],
   "config_flow": true,
   "documentation": "https://github.com/prodigy7/ha_amperfied_wallbox_mqtt",

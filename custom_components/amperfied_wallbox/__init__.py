@@ -1,4 +1,4 @@
-"""Amperfied Wallbox (connect.solar) integration for Home Assistant."""
+"""Amperfied Wallbox (MQTT Integration) integration for Home Assistant."""
 from __future__ import annotations
 
 import logging
