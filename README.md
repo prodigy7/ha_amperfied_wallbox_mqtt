@@ -176,6 +176,44 @@ Adjust `price_per_kwh` to your actual electricity rate (or pull it from a `senso
 instead of hardcoding it). Sessions with no RFID card (authorized via the button/dashboard) get
 grouped under their `source` instead, e.g. "web (no card)".
 
+### Database growth from high-frequency sensors
+
+The wallbox pushes `power/sensor` (per-phase voltage/current) very frequently, and real grid
+voltage jitters continuously at sub-volt precision -- an unrounded per-phase voltage sensor alone
+can generate hundreds of thousands of recorder rows a day. The per-phase voltage sensors
+(`sensor.*_voltage_phase_*`) are rounded to whole volts to cut down on this noise, since
+sub-volt history isn't practically useful for a home dashboard anyway, and are **disabled by
+default** (opt in via **Settings → Devices & Services → Amperfied Wallbox → Entities**) since
+even rounded, they're rarely-needed detail values for most setups. This default only applies to
+newly-added entities -- if you already have them enabled from before, disable them manually the
+same way; Home Assistant doesn't retroactively change existing entities' enabled state.
+
+Per-phase current and power (`sensor.*_current_phase_*`, `sensor.*_power_phase_*`,
+`sensor.*_charging_power`) share the same underlying high-frequency topics and can still produce
+a lot of history rows during long charging sessions (current/power actually vary meaningfully
+while charging, so they aren't rounded away the same way). If your recorder database grows
+faster than you'd like, consider excluding the per-phase diagnostic sensors from history
+entirely -- they remain fully usable live (current value, automations) either way, just without
+long-term history:
+
+```yaml
+recorder:
+  exclude:
+    entities:
+      - sensor.amperfied_wallbox_voltage_phase_1
+      - sensor.amperfied_wallbox_voltage_phase_2
+      - sensor.amperfied_wallbox_voltage_phase_3
+      - sensor.amperfied_wallbox_current_phase_1
+      - sensor.amperfied_wallbox_current_phase_2
+      - sensor.amperfied_wallbox_current_phase_3
+      - sensor.amperfied_wallbox_power_phase_1
+      - sensor.amperfied_wallbox_power_phase_2
+      - sensor.amperfied_wallbox_power_phase_3
+```
+
+Lowering `recorder.purge_keep_days` (default 10) also bounds total database size, though it
+doesn't reduce the write rate itself.
+
 ### Robustness
 
 Live-verified (forced disconnects/wrong credentials against the real wallbox, see

@@ -65,17 +65,26 @@ from .const import (
 from .coordinator import AmperfiedWallboxCoordinator
 
 
-def _semicolon_field(raw: Any, index: int) -> float | None:
-    """Pulls one numeric field out of a "a;b;c;..." string topic value."""
+def _semicolon_field(raw: Any, index: int, ndigits: int | None = None) -> float | None:
+    """Pulls one numeric field out of a "a;b;c;..." string topic value.
+
+    ndigits, if given, rounds the result. The wallbox pushes this topic
+    very frequently, and real grid voltage jitters continuously at
+    sub-volt precision, so an unrounded per-phase voltage sensor alone can
+    generate hundreds of thousands of recorder rows a day (see README.md's
+    "Database growth" note) without the extra precision being practically
+    useful for a home dashboard.
+    """
     if not isinstance(raw, str):
         return None
     parts = raw.split(";")
     if index >= len(parts):
         return None
     try:
-        return float(parts[index])
+        value = float(parts[index])
     except ValueError:
         return None
+    return round(value, ndigits) if ndigits is not None else value
 
 
 def _grid_field(raw: Any, key: str) -> float | None:
@@ -295,11 +304,16 @@ SENSOR_DESCRIPTIONS: tuple[AmperfiedWallboxSensorDescription, ...] = (
         key=f"voltage_phase_{phase}",
         translation_key=f"voltage_phase_{phase}",
         topic=TOPIC_POWERMETER_SENSOR,
-        value_fn=lambda raw, i=(phase - 1) * 2: _semicolon_field(raw, i),
+        value_fn=lambda raw, i=(phase - 1) * 2: _semicolon_field(raw, i, ndigits=0),
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         entity_category=EntityCategory.DIAGNOSTIC,
+        # Off by default (new installs only, see README's "Database growth"
+        # note): grid voltage barely ever settles, so even rounded to whole
+        # volts this can still produce a lot of recorder history for a value
+        # most users never look at. Opt-in via Settings -> Entities.
+        entity_registry_enabled_default=False,
     )
     for phase in (1, 2, 3)
 ) + tuple(

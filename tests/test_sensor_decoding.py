@@ -41,6 +41,18 @@ class TestSemicolonField:
         assert _semicolon_field(raw, 1) == 13.533  # current L1
         assert _semicolon_field(raw, 4) == 230.44  # voltage L3
 
+    def test_ndigits_rounds_the_result(self) -> None:
+        raw = "229.29;13.533;230.53;13.551;230.44;13.018"
+        assert _semicolon_field(raw, 0, ndigits=0) == 229.0
+        assert _semicolon_field(raw, 2, ndigits=0) == 231.0  # 230.53 rounds up
+        assert _semicolon_field(raw, 1, ndigits=1) == 13.5
+
+    def test_ndigits_none_leaves_full_precision(self) -> None:
+        assert _semicolon_field("229.29", 0, ndigits=None) == 229.29
+
+    def test_ndigits_does_not_affect_none_result(self) -> None:
+        assert _semicolon_field("not-a-number", 0, ndigits=0) is None
+
     def test_out_of_range_returns_none(self) -> None:
         assert _semicolon_field("0;0;0", 5) is None
 
@@ -124,7 +136,7 @@ class TestLastSession:
         ("grid_power", 0.0),
         ("house_power", 0.0),
         ("power_phase_1", 0.0),
-        ("voltage_phase_1", 232.97),
+        ("voltage_phase_1", 233.0),  # rounded to whole volts, see _semicolon_field
         ("current_phase_1", 0.0),
     ],
 )
@@ -145,9 +157,9 @@ def test_native_value_idle(telemetry_idle: dict[str, Any], key: str, expected: A
         ("power_phase_1", 3054.0),
         ("power_phase_2", 3070.0),
         ("power_phase_3", 2965.0),
-        ("voltage_phase_1", 229.29),
+        ("voltage_phase_1", 229.0),  # rounded to whole volts, see _semicolon_field
         ("current_phase_1", 13.533),
-        ("voltage_phase_3", 230.44),
+        ("voltage_phase_3", 230.0),  # rounded to whole volts
         ("current_phase_3", 13.018),
     ],
 )
