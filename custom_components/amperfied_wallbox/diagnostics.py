@@ -43,7 +43,7 @@ async def async_get_config_entry_diagnostics(
 
     return {
         "entry_data": async_redact_data(dict(entry.data), TO_REDACT),
-        "telemetry": coordinator.data,
+        "telemetry": async_redact_data(coordinator.data, TO_REDACT),
         "rfid_list": async_redact_data(rfid_list, TO_REDACT),
         "device_details": device_details,
     }
