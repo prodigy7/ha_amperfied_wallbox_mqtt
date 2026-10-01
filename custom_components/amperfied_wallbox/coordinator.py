@@ -26,6 +26,7 @@ from .const import (
     TOPIC_EOL_BOX_SERIAL,
     TOPIC_EOL_ETH0_MAC,
     TOPIC_EOL_HARDWARE_VERSION,
+    TOPIC_EOL_PRODUCT_NAME,
     TOPIC_EOL_SOFTWARE_VERSION,
     TOPIC_EOL_WIFI_MAC,
     TOPIC_EV_STATE,
@@ -70,7 +71,7 @@ class AmperfiedWallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.entry = entry
         self.client = client
         self._refresh_task: asyncio.Task[None] | None = None
-        # Filled in with sw_version/hw_version/serial_number during
+        # Filled in with model/sw_version/hw_version/serial_number during
         # async_setup(); shared by all entities so the HA device page shows
         # real firmware/hardware info instead of just the static basics.
         self.device_info: DeviceInfo = DeviceInfo(
@@ -118,6 +119,9 @@ class AmperfiedWallboxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         _LOGGER.debug("Fetching one-time device info snapshot")
         device_data = await self.client.async_get_device_info()
 
+        model = _unwrap(device_data.get(TOPIC_EOL_PRODUCT_NAME))
+        if model is not None:
+            self.device_info["model"] = model
         sw_version = _unwrap(device_data.get(TOPIC_EOL_SOFTWARE_VERSION))
         if sw_version is not None:
             self.device_info["sw_version"] = sw_version
