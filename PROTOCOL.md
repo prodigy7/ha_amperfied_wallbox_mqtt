@@ -153,6 +153,8 @@ variants (if any exist) would be treated the same way.
 | `api/cmd/energymanager/authenticate` | `{"source":"web","label":"admin"}` | `api/resp/energymanager/authenticate` | Manual charge authorization without RFID |
 | `api/cmd/energymanager/pause` | `{}` | `api/resp/energymanager/pause` | Pauses an active charging session without discarding `chargePermission` (live-verified, see "Observed pause/resume cycle" below) |
 | `api/cmd/energymanager/resume` | `{}` | `api/resp/energymanager/resume` | Resumes a session paused via `energymanager/pause` (live-verified) |
+| `api/cmd/energymanager/force/set` | `{"value":16,"source":"web"}` | `api/resp/energymanager/force/set` (assumed, not observed) | Turns on Boost/ForceCurrent -- forces the charging current, bypassing PV-surplus/load-management strategy. The `value`/payload shape was previously "purpose unclear" here; live-verified by an external reporter (see issue #1) by sniffing the web UI's own Boost button, which sends exactly this hardcoded payload (not a user-chosen value). `energymanager/emState` becomes `ForceCurrent` while active. |
+| `api/cmd/energymanager/force/reset` | `{}` | `api/resp/energymanager/force/reset` (assumed, not observed) | Turns Boost/ForceCurrent back off (live-verified, see issue #1) |
 
 **Confirmed:** search/filter/pagination in the web UI (e.g. for the RFID list) are purely
 client-side in the browser JS. The server always returns the full list for `rfidList/get`,
@@ -219,8 +221,10 @@ that decision.
   power limit (Watts, no `phases` field) via a `limitType` selector (`"current"` vs `"power"`).
   Response topic presumably `api/resp/energymanager/limit/set` (not observed). Related,
   undocumented: `api/conf/energymanager/limit` (current config, read-only observed shape
-  unknown) and `api/cmd/energymanager/force/set` / `energymanager/force/reset` (purpose unclear,
-  possibly for forcing/overriding a charge state).
+  unknown). (`api/cmd/energymanager/force/set` / `energymanager/force/reset` were in this
+  "purpose unclear" bucket too, until issue #1 live-verified them -- see the commands table
+  above. They're implemented as `switch.boost`, as an explicit exception to the read-primary
+  policy; see CLAUDE.md point 8.)
 
 **Not implemented, by design (see read-primary policy above). Topic names and (partial) payload
 shapes below are from the same frontend-JS static analysis, not live-tested:**
@@ -303,7 +307,7 @@ during a sniffing session.
 | `powermeter/powerPerPhases` | `0;0;0` | Power per phase (L1;L2;L3) |
 | `powermeter/sensor` | `231.6;0;230.5;0;231.0;0` | Voltage/current alternating per phase |
 | `chargectrl/wbState` | `Available` | Wallbox status. Observed values: `Available` (idle), `Preparing` (car just plugged in, EVSE side not yet ready/authorized), `SuspendedEVSE` (paused on the charging station side, e.g. briefly after authorization or while unplugging), `SuspendedEV` (paused on the car side -- among other things the state right after manually stopping via the RFID fob, even though still authorized), `Charging` (actively charging) |
-| `energymanager/emState` | `Available` | Energy manager status. Observed values: `Available` (idle), `CarPlugedIn` (car just plugged in -- the "Pluged" typo is exactly as sent by the wallbox, deliberately documented unchanged), `LimitCurrent` (active charging resp. authorized, current is being limited/regulated), `LimitReset` (brief transition while unplugging, before returning to `Available`), `Pause` (charging paused via `energymanager/pause`, see below) |
+| `energymanager/emState` | `Available` | Energy manager status. Observed values: `Available` (idle), `CarPlugedIn` (car just plugged in -- the "Pluged" typo is exactly as sent by the wallbox, deliberately documented unchanged), `LimitCurrent` (active charging resp. authorized, current is being limited/regulated), `LimitReset` (brief transition while unplugging, before returning to `Available`), `Pause` (charging paused via `energymanager/pause`, see below), `ForceCurrent` (Boost active, see `energymanager/force/set` above and issue #1) |
 | `energymanager/chargePermission` | `{}` or `{"source","label","timestamp"}` | Authorization details. Much richer for RFID authorization: `{"uuid","cardnum","secure","state","expiry","label","connectorList","source":"rfid","timestamp"}` (the complete card record from the RFID list). **Important:** manually stopping via the RFID fob while charging does **not** reset `chargePermission` -- the card stays remembered until the car is actually unplugged. `chargePermission` alone is therefore NOT suitable for detecting "currently charging"; use `wbState`/`evState` for that. |
 | `loadbalancer/grid/monitor/leader` | large JSON, every ~5s | Complete grid/connector telemetry |
 

@@ -41,6 +41,7 @@ later be shared via HACS. Core requirements:
    - `sensor.*` for: charging power, total energy, PCB temperature, EV status, wallbox status,
      energy manager status, current phase count, power limit
    - `button.*` for: manual charge authorization (`energymanager/authenticate`)
+   - `switch.*` for: Boost / ForceCurrent toggle (see exception in point 8 below)
    - optionally `binary_sensor.*` for "EV connected" (derived from `evState != A1`)
    - the RFID list rather as an attribute of a sensor or as a `diagnostics` export, not as a
      flood of dedicated entities (4 cards is no reason for 4 entities)
@@ -57,6 +58,15 @@ later be shared via HACS. Core requirements:
    hardware/firmware settings via HA carries a real risk of hardware damage or a bricked device.
    Don't add these without being asked to explicitly.
 
+   **Explicit exception: Boost / ForceCurrent toggle** (`api/cmd/energymanager/force/set` with
+   the fixed payload `{"value": 16, "source": "web"}`, and `api/cmd/energymanager/force/reset`).
+   Unlike `limit/set`, this is not a free-form user-chosen value -- it's the same hardcoded
+   command the wallbox's own web UI sends for its Boost button, with no numeric input and no
+   `retain` flag, and is live-verified (see issue #1). Implemented as `switch.*`, with
+   `energymanager/emState == "ForceCurrent"` as the on/off feedback. This decision was made
+   deliberately on 2026-10-01 after discussion; it does not reopen the door for `limit/set`,
+   phase switching, PV surplus, or RFID management, which stay excluded.
+
 ## Status
 
 Core functionality is done and live-verified: connect/login, `api/cmd/user/refreshAuth`-based
@@ -65,10 +75,12 @@ prefix (no need to ask the user for it), 24 sensors (incl. per-phase power/volta
 solar surplus/grid/house power, charge authorization source, last charge session), 2 binary
 sensors (EV connected, using default password), manual charge authorization, a `get_charge_log`
 service, RFID/device-detail diagnostics, device info (firmware/hardware version, serial, MAC
-addresses) on the HA device page, and resilience (`ConfigEntryNotReady`/`ConfigEntryAuthFailed`
+addresses) on the HA device page, resilience (`ConfigEntryNotReady`/`ConfigEntryAuthFailed`
 at setup, reauth flow, unavailability marking + auto-recovery on connection loss, debug
-logging via the standard HA per-integration logger). Also supports multiple wallboxes as
-separate config entries (no `single_config_entry` restriction).
+logging via the standard HA per-integration logger), and a Boost/ForceCurrent `switch.*`
+(`energymanager/force/set` / `force/reset`, see the explicit exception in point 8 above).
+Also supports multiple wallboxes as separate config entries (no `single_config_entry`
+restriction).
 
 Static analysis of the wallbox's own frontend JS bundle (served at `/assets/index-*.js`) has
 proven to be a very productive way to find command topics and payload shapes without needing to

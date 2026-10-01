@@ -29,6 +29,8 @@ CMD_CLOG_GET = "api/cmd/clog/get"
 CMD_ENERGYMANAGER_AUTHENTICATE = "api/cmd/energymanager/authenticate"
 CMD_ENERGYMANAGER_PAUSE = "api/cmd/energymanager/pause"
 CMD_ENERGYMANAGER_RESUME = "api/cmd/energymanager/resume"
+CMD_ENERGYMANAGER_FORCE_SET = "api/cmd/energymanager/force/set"
+CMD_ENERGYMANAGER_FORCE_RESET = "api/cmd/energymanager/force/reset"
 
 # --- Response Topics ---
 RESP_USER_AUTH = "api/resp/user/auth"
@@ -39,6 +41,11 @@ RESP_CLOG_GET = "api/resp/clog/get"
 RESP_ENERGYMANAGER_AUTHENTICATE = "api/resp/energymanager/authenticate"
 RESP_ENERGYMANAGER_PAUSE = "api/resp/energymanager/pause"
 RESP_ENERGYMANAGER_RESUME = "api/resp/energymanager/resume"
+# Not directly observed (see PROTOCOL.md); assumed by analogy with the other
+# cmd/resp pairs above. If the wallbox never responds, async_set_boost()
+# simply times out like pause/resume do when they don't apply.
+RESP_ENERGYMANAGER_FORCE_SET = "api/resp/energymanager/force/set"
+RESP_ENERGYMANAGER_FORCE_RESET = "api/resp/energymanager/force/reset"
 
 # --- Telemetry topics the coordinator subscribes to ---
 TOPIC_EV_STATE = "api/t/power/evState"
@@ -112,3 +119,6 @@ LAST_CHARGE_SESSION_KEY = "_last_charge_session"
 
 # EV state values per EN 61851-1 (see PROTOCOL.md)
 EV_STATE_NO_CAR = "A1"
+
+# energymanager/emState value while Boost/ForceCurrent is active (see PROTOCOL.md)
+EM_STATE_FORCE_CURRENT = "ForceCurrent"

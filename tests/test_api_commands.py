@@ -1,6 +1,6 @@
 """Unit tests for AmperfiedWallboxClient's simple cmd/resp wrapper methods
-(authenticate/pause/resume): each must publish to the right topic with the
-right payload shape.
+(authenticate/pause/resume/boost): each must publish to the right topic with
+the right payload shape.
 """
 from __future__ import annotations
 
@@ -71,3 +71,31 @@ async def test_resume_charging_sends_empty_payload() -> None:
     await client.async_resume_charging()
 
     assert fake.published == [("prefix/api/cmd/energymanager/resume", json.dumps({}))]
+
+
+@pytest.mark.asyncio
+async def test_set_boost_on_sends_the_wallbox_webui_boost_payload() -> None:
+    """Must be the exact hardcoded payload the wallbox's own web UI sends for
+    its Boost button (see CLAUDE.md point 8, issue #1) -- not a user-chosen
+    value.
+    """
+    client = AmperfiedWallboxClient("host", "prefix", "user", "pass")
+    fake = _RecordingFakeClient(client)
+    client._client = fake
+
+    await client.async_set_boost(True)
+
+    assert fake.published == [
+        ("prefix/api/cmd/energymanager/force/set", json.dumps({"value": 16, "source": "web"}))
+    ]
+
+
+@pytest.mark.asyncio
+async def test_set_boost_off_sends_empty_payload() -> None:
+    client = AmperfiedWallboxClient("host", "prefix", "user", "pass")
+    fake = _RecordingFakeClient(client)
+    client._client = fake
+
+    await client.async_set_boost(False)
+
+    assert fake.published == [("prefix/api/cmd/energymanager/force/reset", json.dumps({}))]

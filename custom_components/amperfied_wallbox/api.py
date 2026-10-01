@@ -6,12 +6,17 @@ WebSocket). See CLAUDE.md for the architectural requirements.
 
 DESIGN POLICY: this integration is deliberately read-primary. Only a small,
 carefully chosen set of write actions is implemented (manual charge
-authorization). Setting the charging power/current limit, phase switching,
-PV surplus toggling, and RFID management are intentionally NOT implemented
-here, even though their command topics are documented in PROTOCOL.md --
-misconfiguring wallbox hardware/firmware settings via HA carries a real risk
-of hardware damage or a bricked device, which isn't worth the convenience.
-Don't add these without an explicit, deliberate decision to do so.
+authorization, pause/resume, Boost/ForceCurrent). Setting the charging
+power/current limit, phase switching, PV surplus toggling, and RFID
+management are intentionally NOT implemented here, even though their command
+topics are documented in PROTOCOL.md -- misconfiguring wallbox
+hardware/firmware settings via HA carries a real risk of hardware damage or
+a bricked device, which isn't worth the convenience. Don't add these without
+an explicit, deliberate decision to do so.
+
+Boost/ForceCurrent (`energymanager/force/set` / `force/reset`) is an explicit,
+deliberate exception to that rule (see CLAUDE.md point 8): unlike limit/set,
+it sends the wallbox's own hardcoded Boost payload, not a free-form value.
 
 TODO (see PROTOCOL.md, "Not yet reverse-engineered" section):
 - Phase switching, PV surplus charging on/off, RFID management
@@ -35,6 +40,8 @@ from .const import (
     ALL_TELEMETRY_TOPICS,
     CMD_CLOG_GET,
     CMD_ENERGYMANAGER_AUTHENTICATE,
+    CMD_ENERGYMANAGER_FORCE_RESET,
+    CMD_ENERGYMANAGER_FORCE_SET,
     CMD_ENERGYMANAGER_PAUSE,
     CMD_ENERGYMANAGER_RESUME,
     CMD_LOGIN,
@@ -45,6 +52,8 @@ from .const import (
     DEFAULT_PORT,
     RESP_CLOG_GET,
     RESP_ENERGYMANAGER_AUTHENTICATE,
+    RESP_ENERGYMANAGER_FORCE_RESET,
+    RESP_ENERGYMANAGER_FORCE_SET,
     RESP_ENERGYMANAGER_PAUSE,
     RESP_ENERGYMANAGER_RESUME,
     RESP_LOGIN,
@@ -643,6 +652,26 @@ class AmperfiedWallboxClient:
         (api/cmd/energymanager/resume).
         """
         await self._async_request(CMD_ENERGYMANAGER_RESUME, RESP_ENERGYMANAGER_RESUME, {})
+
+    async def async_set_boost(self, enable: bool) -> None:
+        """Turns Boost/ForceCurrent on or off (api/cmd/energymanager/force/set|reset).
+
+        See CLAUDE.md point 8 ("Explicit exception: Boost / ForceCurrent
+        toggle") -- unlike the still-unimplemented energymanager/limit/set,
+        this sends the exact same hardcoded payload the wallbox's own web UI
+        sends for its Boost button, not a user-chosen value. Live-verified,
+        see issue #1.
+        """
+        if enable:
+            await self._async_request(
+                CMD_ENERGYMANAGER_FORCE_SET,
+                RESP_ENERGYMANAGER_FORCE_SET,
+                {"value": 16, "source": "web"},
+            )
+        else:
+            await self._async_request(
+                CMD_ENERGYMANAGER_FORCE_RESET, RESP_ENERGYMANAGER_FORCE_RESET, {}
+            )
 
     async def async_get_charge_log(
         self, filter_after: str, filter_before: str, log_type: str = "text/json"
