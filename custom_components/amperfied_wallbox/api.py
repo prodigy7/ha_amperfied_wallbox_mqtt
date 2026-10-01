@@ -721,12 +721,13 @@ class AmperfiedWallboxClient:
 
     async def async_get_device_info(self, timeout: float = 5.0) -> dict[str, Any]:
         """Fetches the small set of factory topics needed for `DeviceInfo`
-        (sw_version, hw_version, serial_number) and the "still on default
+        (model, sw_version, hw_version, serial_number) and the "still on default
         password" security check, keyed by relative topic so the result can
         be merged straight into `coordinator.data` like telemetry.
         """
         return await self._async_snapshot_topics(
             [
+                TOPIC_EOL_PRODUCT_NAME,
                 TOPIC_EOL_SOFTWARE_VERSION,
                 TOPIC_EOL_HARDWARE_VERSION,
                 TOPIC_EOL_BOX_SERIAL,

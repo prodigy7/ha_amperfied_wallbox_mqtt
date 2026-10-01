@@ -1,6 +1,6 @@
 # Home Assistant Integration: Amperfied Wallbox (MQTT Integration)
 
-Native Home Assistant integration for Amperfied/Heidelberg connect.solar wallboxes
+Native Home Assistant integration for Amperfied/Heidelberg connect.solar and connect.home wallboxes
 (HDM-SMART-CONNECT series), connected via the wallbox's reverse-engineered
 MQTT5-over-WebSocket API (no Modbus needed, web UI features remain usable).
 
