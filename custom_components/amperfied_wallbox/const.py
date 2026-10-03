@@ -41,9 +41,8 @@ RESP_CLOG_GET = "api/resp/clog/get"
 RESP_ENERGYMANAGER_AUTHENTICATE = "api/resp/energymanager/authenticate"
 RESP_ENERGYMANAGER_PAUSE = "api/resp/energymanager/pause"
 RESP_ENERGYMANAGER_RESUME = "api/resp/energymanager/resume"
-# Not directly observed (see PROTOCOL.md); assumed by analogy with the other
-# cmd/resp pairs above. If the wallbox never responds, async_set_boost()
-# simply times out like pause/resume do when they don't apply.
+# Live-verified (see PROTOCOL.md, PR #9 discussion): the wallbox answers both
+# with {} in ~0.1s.
 RESP_ENERGYMANAGER_FORCE_SET = "api/resp/energymanager/force/set"
 RESP_ENERGYMANAGER_FORCE_RESET = "api/resp/energymanager/force/reset"
 
@@ -61,6 +60,11 @@ TOPIC_POWERMETER_SENSOR = "api/t/powermeter/sensor"
 TOPIC_WB_STATE = "api/t/chargectrl/wbState"
 TOPIC_EM_STATE = "api/t/energymanager/emState"
 TOPIC_CHARGE_PERMISSION = "api/t/energymanager/chargePermission"
+# {} when no charging session is active. The wallbox's own web UI only
+# enables its Boost button while this is non-empty (see PROTOCOL.md, PR #9
+# discussion) -- switch.boost replicates that session check, though not the
+# UI's additional Modbus/Amperfied-Solutions-backend checks.
+TOPIC_ENERGYMANAGER_SESSION = "api/t/energymanager/session"
 TOPIC_GRID_MONITOR_LEADER = "api/t/loadbalancer/grid/monitor/leader"
 
 ALL_TELEMETRY_TOPICS = [
@@ -75,6 +79,7 @@ ALL_TELEMETRY_TOPICS = [
     TOPIC_POWERMETER_POWER_PER_PHASES,
     TOPIC_POWERMETER_SENSOR,
     TOPIC_WB_STATE,
+    TOPIC_ENERGYMANAGER_SESSION,
     TOPIC_EM_STATE,
     TOPIC_CHARGE_PERMISSION,
     TOPIC_GRID_MONITOR_LEADER,
@@ -89,6 +94,12 @@ TOPIC_EOL_BOX_SERIAL = "api/eol/canstartup/boxSerial"
 TOPIC_EOL_ETH0_MAC = "api/eol/config/eth0_MAC"
 TOPIC_EOL_WIFI_MAC = "api/eol/config/wifi_MAC"
 TOPIC_CONF_INITIAL_PASSWORD = "api/conf/mqttapi/user/initialPassword"
+# The installer-configured max charging current for this installation (not
+# anonymously visible, requires the logged-in connection). Used as the
+# `value` in the Boost/ForceCurrent payload instead of a hardcoded number --
+# see switch.py and CLAUDE.md point 8's Boost exception, and PR #9's
+# discussion for why a fixed 16 was wrong.
+TOPIC_CONF_HW_CURRENT_LIMIT = "api/conf/canstartup/hwCurrentLimit"
 
 # Topics fetched once via api.async_get_diagnostics_device_details(), used only
 # for the diagnostics export (not merged into coordinator.data / no entities).

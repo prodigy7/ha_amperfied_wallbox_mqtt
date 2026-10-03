@@ -51,6 +51,7 @@ Retained, mostly static topics with useful hardware/firmware info, live-captured
 | `api/eol/mid/identification` | `{"serial":"123456789","vendorName":"WAGO GmbH","productName":"879-3020 4PS","softwareVersion":"1.34","hardwareVersion":"1.04"}` | The built-in MID-certified energy meter's own identification (separate vendor: WAGO) |
 | `api/conf/canstartup/paragraph14a` | `{"value":true}` | Whether §14a EnWG (German grid operator dimmable-device regulation) is active |
 | `api/conf/mqttapi/user/initialPassword` | `{"value":false}` | Whether the wallbox is still on its factory-default password |
+| `api/conf/canstartup/hwCurrentLimit` | `{"value":16.0}` | Installer-configured max charging current (Amps) for this installation. Not anonymously visible (needs the logged-in connection, unlike the `#` wildcard capture the rest of this table was captured with). Used as the `value` in the Boost/ForceCurrent command, see below -- not a fixed number, see PR #9 discussion. |
 
 All of the above is now wired into the integration, live-verified:
 - `softwareVersion`, `hardwareVersion`, `boxSerial`, `eth0_MAC`, `wifi_MAC` are fetched once at
@@ -62,6 +63,9 @@ All of the above is now wired into the integration, live-verified:
   `binary_sensor.using_default_password` (device_class `problem`) -- a security nudge to change
   the factory-default password, since this integration doesn't do that for you (read-primary
   policy, see below).
+- `canstartup/hwCurrentLimit` is likewise fetched once at startup and merged into
+  `coordinator.data`; `switch.boost` reads it from there to build the Boost/ForceCurrent payload
+  (see below) instead of sending a fixed value.
 - Everything else in the table (part numbers/serials/production dates, installed hardware
   modules, the MID meter's own identification, §14a status, product name/variant, `van30`) is
   fetched once via `api.async_get_diagnostics_device_details()` and included in the
@@ -153,8 +157,8 @@ variants (if any exist) would be treated the same way.
 | `api/cmd/energymanager/authenticate` | `{"source":"web","label":"admin"}` | `api/resp/energymanager/authenticate` | Manual charge authorization without RFID |
 | `api/cmd/energymanager/pause` | `{}` | `api/resp/energymanager/pause` | Pauses an active charging session without discarding `chargePermission` (live-verified, see "Observed pause/resume cycle" below) |
 | `api/cmd/energymanager/resume` | `{}` | `api/resp/energymanager/resume` | Resumes a session paused via `energymanager/pause` (live-verified) |
-| `api/cmd/energymanager/force/set` | `{"value":16,"source":"web"}` | `api/resp/energymanager/force/set` (assumed, not observed) | Turns on Boost/ForceCurrent -- forces the charging current, bypassing PV-surplus/load-management strategy. The `value`/payload shape was previously "purpose unclear" here; live-verified by an external reporter (see issue #1) by sniffing the web UI's own Boost button, which sends exactly this hardcoded payload (not a user-chosen value). `energymanager/emState` becomes `ForceCurrent` while active. |
-| `api/cmd/energymanager/force/reset` | `{}` | `api/resp/energymanager/force/reset` (assumed, not observed) | Turns Boost/ForceCurrent back off (live-verified, see issue #1) |
+| `api/cmd/energymanager/force/set` | `{"value":<hwCurrentLimit>,"source":"web"}` | `api/resp/energymanager/force/set` (live-verified, responds `{}` in ~0.1s) | Turns on Boost/ForceCurrent -- forces the charging current, bypassing PV-surplus/load-management strategy. The `value`/payload shape was previously "purpose unclear" here; live-verified by an external reporter (see issue #1) by sniffing the web UI's own Boost button. **Important** (see PR #9 discussion): `value` is **not** a fixed number -- the UI reads it from `api/conf/canstartup/hwCurrentLimit` (installer-configured max current for the installation) via React state, so it varies per wallbox. Both wallboxes this was live-verified against happened to have `hwCurrentLimit=16`, which is why an earlier version of the integration wrongly hardcoded `16`. `energymanager/emState` becomes `ForceCurrent` while active. The web UI also only enables its Boost button during an active session (`energymanager/session` != `{}`) and without Modbus/an Amperfied Solutions backend active -- see `energymanager/session` below. |
+| `api/cmd/energymanager/force/reset` | `{}` | `api/resp/energymanager/force/reset` (live-verified, responds `{}` in ~0.1s) | Turns Boost/ForceCurrent back off (live-verified, see issue #1 and PR #9) |
 
 **Confirmed:** search/filter/pagination in the web UI (e.g. for the RFID list) are purely
 client-side in the browser JS. The server always returns the full list for `rfidList/get`,
@@ -309,6 +313,7 @@ during a sniffing session.
 | `chargectrl/wbState` | `Available` | Wallbox status. Observed values: `Available` (idle), `Preparing` (car just plugged in, EVSE side not yet ready/authorized), `SuspendedEVSE` (paused on the charging station side, e.g. briefly after authorization or while unplugging), `SuspendedEV` (paused on the car side -- among other things the state right after manually stopping via the RFID fob, even though still authorized), `Charging` (actively charging) |
 | `energymanager/emState` | `Available` | Energy manager status. Observed values: `Available` (idle), `CarPlugedIn` (car just plugged in -- the "Pluged" typo is exactly as sent by the wallbox, deliberately documented unchanged), `LimitCurrent` (active charging resp. authorized, current is being limited/regulated), `LimitReset` (brief transition while unplugging, before returning to `Available`), `Pause` (charging paused via `energymanager/pause`, see below), `ForceCurrent` (Boost active, see `energymanager/force/set` above and issue #1) |
 | `energymanager/chargePermission` | `{}` or `{"source","label","timestamp"}` | Authorization details. Much richer for RFID authorization: `{"uuid","cardnum","secure","state","expiry","label","connectorList","source":"rfid","timestamp"}` (the complete card record from the RFID list). **Important:** manually stopping via the RFID fob while charging does **not** reset `chargePermission` -- the card stays remembered until the car is actually unplugged. `chargePermission` alone is therefore NOT suitable for detecting "currently charging"; use `wbState`/`evState` for that. |
+| `energymanager/session` | `{}` or non-empty JSON (shape not fully traced) | Empty when no charging session is active. The web UI gates its Boost button on this being non-empty (plus no Modbus/Amperfied-Solutions-backend active, not replicated here) -- `switch.boost` checks this before sending `force/set`, see PR #9 discussion. |
 | `loadbalancer/grid/monitor/leader` | large JSON, every ~5s | Complete grid/connector telemetry |
 
 All of the above are wired into `sensor.py` (`power/limiter` and `power/phaseSwitchState` as

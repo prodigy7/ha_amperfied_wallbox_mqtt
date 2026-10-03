@@ -49,8 +49,9 @@ This integration is deliberately **read-primary**. Setting the charging power li
 switching, PV surplus charging toggle, and RFID card management are intentionally *not*
 implemented, even though their command topics are documented -- misconfiguring wallbox
 hardware/firmware settings via Home Assistant carries a real risk of hardware damage. The Boost
-switch is a deliberate, narrow exception: it sends the wallbox's own hardcoded Boost payload
-(not a user-chosen value), see `CLAUDE.md` point 8. See `PROTOCOL.md` for the full protocol
+switch is a deliberate, narrow exception: the current it requests always comes from the
+wallbox's own installer-configured `hwCurrentLimit`, never a value entered in Home Assistant,
+see `CLAUDE.md` point 8. See `PROTOCOL.md` for the full protocol
 documentation and `CLAUDE.md` for the project brief.
 
 ### Usage examples

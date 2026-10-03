@@ -59,13 +59,18 @@ later be shared via HACS. Core requirements:
    Don't add these without being asked to explicitly.
 
    **Explicit exception: Boost / ForceCurrent toggle** (`api/cmd/energymanager/force/set` with
-   the fixed payload `{"value": 16, "source": "web"}`, and `api/cmd/energymanager/force/reset`).
-   Unlike `limit/set`, this is not a free-form user-chosen value -- it's the same hardcoded
-   command the wallbox's own web UI sends for its Boost button, with no numeric input and no
-   `retain` flag, and is live-verified (see issue #1). Implemented as `switch.*`, with
-   `energymanager/emState == "ForceCurrent"` as the on/off feedback. This decision was made
-   deliberately on 2026-10-01 after discussion; it does not reopen the door for `limit/set`,
-   phase switching, PV surplus, or RFID management, which stay excluded.
+   `{"value": <hwCurrentLimit>, "source": "web"}`, and `api/cmd/energymanager/force/reset`).
+   Unlike `limit/set`, HA never lets the user pick the value -- `value` is always the wallbox's
+   own installer-configured `api/conf/canstartup/hwCurrentLimit`, read once at startup and sent
+   as-is, with no `retain` flag. This is the same payload shape the wallbox's own web UI sends
+   for its Boost button (**important, see PR #9 discussion**: a first version of this hardcoded
+   `16` because that's what both live-verifiers' `hwCurrentLimit` happened to be -- fixed before
+   merge, since a real fixed 16 would have under- or over-requested current on a different
+   installation). Implemented as `switch.*`, with `energymanager/emState == "ForceCurrent"` as
+   the on/off feedback, and `energymanager/session != {}` as a turn-on precondition (mirroring
+   the web UI). This decision was made deliberately on 2026-10-01 after discussion; it does not
+   reopen the door for `limit/set`, phase switching, PV surplus, or RFID management, which stay
+   excluded.
 
 ## Status
 
