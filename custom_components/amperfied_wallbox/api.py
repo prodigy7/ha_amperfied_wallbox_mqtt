@@ -6,12 +6,19 @@ WebSocket). See CLAUDE.md for the architectural requirements.
 
 DESIGN POLICY: this integration is deliberately read-primary. Only a small,
 carefully chosen set of write actions is implemented (manual charge
-authorization). Setting the charging power/current limit, phase switching,
-PV surplus toggling, and RFID management are intentionally NOT implemented
-here, even though their command topics are documented in PROTOCOL.md --
-misconfiguring wallbox hardware/firmware settings via HA carries a real risk
-of hardware damage or a bricked device, which isn't worth the convenience.
-Don't add these without an explicit, deliberate decision to do so.
+authorization, pause/resume, Boost/ForceCurrent). Setting the charging
+power/current limit, phase switching, PV surplus toggling, and RFID
+management are intentionally NOT implemented here, even though their command
+topics are documented in PROTOCOL.md -- misconfiguring wallbox
+hardware/firmware settings via HA carries a real risk of hardware damage or
+a bricked device, which isn't worth the convenience. Don't add these without
+an explicit, deliberate decision to do so.
+
+Boost/ForceCurrent (`energymanager/force/set` / `force/reset`) is an explicit,
+deliberate exception to that rule (see CLAUDE.md point 8): unlike limit/set,
+HA never lets the user pick the value -- it's read from the wallbox's own
+`hwCurrentLimit` config and sent as-is, the same payload shape its own web UI
+sends for its Boost button (see async_set_boost()).
 
 TODO (see PROTOCOL.md, "Not yet reverse-engineered" section):
 - Phase switching, PV surplus charging on/off, RFID management
@@ -35,6 +42,8 @@ from .const import (
     ALL_TELEMETRY_TOPICS,
     CMD_CLOG_GET,
     CMD_ENERGYMANAGER_AUTHENTICATE,
+    CMD_ENERGYMANAGER_FORCE_RESET,
+    CMD_ENERGYMANAGER_FORCE_SET,
     CMD_ENERGYMANAGER_PAUSE,
     CMD_ENERGYMANAGER_RESUME,
     CMD_LOGIN,
@@ -45,6 +54,8 @@ from .const import (
     DEFAULT_PORT,
     RESP_CLOG_GET,
     RESP_ENERGYMANAGER_AUTHENTICATE,
+    RESP_ENERGYMANAGER_FORCE_RESET,
+    RESP_ENERGYMANAGER_FORCE_SET,
     RESP_ENERGYMANAGER_PAUSE,
     RESP_ENERGYMANAGER_RESUME,
     RESP_LOGIN,
@@ -52,6 +63,7 @@ from .const import (
     RESP_USER_AUTH,
     RESP_USER_REFRESH_AUTH,
     TOKEN_REFRESH_INTERVAL_SECONDS,
+    TOPIC_CONF_HW_CURRENT_LIMIT,
     TOPIC_CONF_INITIAL_PASSWORD,
     TOPIC_CONF_PARAGRAPH14A,
     TOPIC_EOL_BOX_DATE,
@@ -644,6 +656,45 @@ class AmperfiedWallboxClient:
         """
         await self._async_request(CMD_ENERGYMANAGER_RESUME, RESP_ENERGYMANAGER_RESUME, {})
 
+    async def async_set_boost(self, enable: bool, current: float | None = None) -> None:
+        """Turns Boost/ForceCurrent on or off (api/cmd/energymanager/force/set|reset).
+
+        See CLAUDE.md point 8 ("Explicit exception: Boost / ForceCurrent
+        toggle") -- unlike the still-unimplemented energymanager/limit/set,
+        this sends the same payload shape the wallbox's own web UI sends for
+        its Boost button, not an arbitrary user-chosen value.
+
+        IMPORTANT (see PR #9 discussion): the UI does NOT hardcode `value`.
+        It reads it from `api/conf/canstartup/hwCurrentLimit`, the
+        installer-configured max current for this specific installation.
+        The two wallboxes this was live-verified against both happened to
+        have hwCurrentLimit=16, which is how the original (wrong) hardcoded
+        16 made it in. `current` must be that value -- callers (switch.py)
+        read it from `coordinator.data[TOPIC_CONF_HW_CURRENT_LIMIT]`, fetched
+        once via async_get_device_info(). Raises ValueError rather than
+        silently falling back to a guessed value if it's missing, since
+        sending the wrong current could request more than the installation
+        was configured to allow.
+        """
+        if enable:
+            if current is None:
+                raise ValueError(
+                    "Cannot enable Boost without knowing hwCurrentLimit "
+                    "(api/conf/canstartup/hwCurrentLimit was not available)"
+                )
+            # Match the UI's payload exactly: hwCurrentLimit arrives as a
+            # float (e.g. 16.0); the UI sends whole numbers as ints.
+            value: float = int(current) if float(current).is_integer() else current
+            await self._async_request(
+                CMD_ENERGYMANAGER_FORCE_SET,
+                RESP_ENERGYMANAGER_FORCE_SET,
+                {"value": value, "source": "web"},
+            )
+        else:
+            await self._async_request(
+                CMD_ENERGYMANAGER_FORCE_RESET, RESP_ENERGYMANAGER_FORCE_RESET, {}
+            )
+
     async def async_get_charge_log(
         self, filter_after: str, filter_before: str, log_type: str = "text/json"
     ) -> dict[str, Any]:
@@ -721,9 +772,11 @@ class AmperfiedWallboxClient:
 
     async def async_get_device_info(self, timeout: float = 5.0) -> dict[str, Any]:
         """Fetches the small set of factory topics needed for `DeviceInfo`
-        (model, sw_version, hw_version, serial_number) and the "still on default
-        password" security check, keyed by relative topic so the result can
-        be merged straight into `coordinator.data` like telemetry.
+        (model, sw_version, hw_version, serial_number), the "still on default
+        password" security check, and the installer-configured max current
+        (needed for Boost/ForceCurrent, see async_set_boost()) -- keyed by
+        relative topic so the result can be merged straight into
+        `coordinator.data` like telemetry.
         """
         return await self._async_snapshot_topics(
             [
@@ -734,6 +787,7 @@ class AmperfiedWallboxClient:
                 TOPIC_EOL_ETH0_MAC,
                 TOPIC_EOL_WIFI_MAC,
                 TOPIC_CONF_INITIAL_PASSWORD,
+                TOPIC_CONF_HW_CURRENT_LIMIT,
             ],
             timeout=timeout,
         )

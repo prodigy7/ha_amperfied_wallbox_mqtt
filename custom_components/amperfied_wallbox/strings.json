@@ -69,6 +69,9 @@
       "authenticate_charging": {"name": "Authorize charging"},
       "pause_charging": {"name": "Pause charging"},
       "resume_charging": {"name": "Resume charging"}
+    },
+    "switch": {
+      "boost": {"name": "Boost"}
     }
   }
 }

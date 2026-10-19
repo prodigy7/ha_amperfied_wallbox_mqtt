@@ -23,7 +23,7 @@ from .coordinator import AmperfiedWallboxCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[str] = ["sensor", "binary_sensor", "button"]
+PLATFORMS: list[str] = ["sensor", "binary_sensor", "button", "switch"]
 
 SERVICE_GET_CHARGE_LOG = "get_charge_log"
 

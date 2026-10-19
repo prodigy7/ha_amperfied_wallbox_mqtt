@@ -27,10 +27,10 @@ MQTT5-over-WebSocket API (no Modbus needed, web UI features remain usable).
    up yourself. If the wallbox is unreachable or the credentials are wrong, the form shows an
    error and nothing is saved.
 
-Once set up, all entities, the manual charge-authorization/pause/resume buttons, and the
-`get_charge_log` service become available immediately; no further configuration is needed. See
-"Robustness" below for what happens if the wallbox is temporarily unreachable or the password
-changes later.
+Once set up, all entities, the manual charge-authorization/pause/resume buttons, the Boost
+switch, and the `get_charge_log` service become available immediately; no further configuration
+is needed. See "Robustness" below for what happens if the wallbox is temporarily unreachable or
+the password changes later.
 
 ## Status
 
@@ -40,14 +40,19 @@ the device prefix, 24 sensors (charging power/energy, per-phase power/voltage/cu
 temperature, EV/wallbox/energy-manager state, limit reason, phase switch state, charge
 authorization source, solar surplus/grid/house power, last charge session), 2 binary sensors
 (EV connected, using default password), 3 buttons (manual charge authorization, pause charging,
-resume charging), a `get_charge_log` service, RFID/device-detail diagnostics, and device info
-(firmware/hardware version, serial, MAC addresses) on the HA device page.
+resume charging), a Boost switch (forces the charging current, bypassing PV-surplus/load-
+management strategy -- see issue #1), a `get_charge_log` service, RFID/device-detail
+diagnostics, and device info (firmware/hardware version, serial, MAC addresses) on the HA
+device page.
 
 This integration is deliberately **read-primary**. Setting the charging power limit, phase
 switching, PV surplus charging toggle, and RFID card management are intentionally *not*
 implemented, even though their command topics are documented -- misconfiguring wallbox
-hardware/firmware settings via Home Assistant carries a real risk of hardware damage. See
-`PROTOCOL.md` for the full protocol documentation and `CLAUDE.md` for the project brief.
+hardware/firmware settings via Home Assistant carries a real risk of hardware damage. The Boost
+switch is a deliberate, narrow exception: the current it requests always comes from the
+wallbox's own installer-configured `hwCurrentLimit`, never a value entered in Home Assistant,
+see `CLAUDE.md` point 8. See `PROTOCOL.md` for the full protocol
+documentation and `CLAUDE.md` for the project brief.
 
 ### Usage examples
 
